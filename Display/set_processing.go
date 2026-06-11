@@ -47,27 +47,3 @@ func FilesToValue[V Output](files []*os.File, sizes []int64) (set [][]V) {
 	}
 	return
 }
-
-// func FilesToFloat(files []*os.File, sizes []int64) (set [][]float32) {
-// 	set = make([][]float32, len(files))
-// 	for i := range set {
-// 		set[i] = FileToFloat(files[i], sizes[i]-HeaderOffset)
-// 	}
-// 	return
-// }
-
-// func FilesToInt(files []*os.File, sizes []int64) (set [][]uint16) {
-// 	set = make([][]uint16, len(files))
-// 	for i := range set {
-// 		set[i] = FileToInt(files[i], sizes[i]-HeaderOffset)
-// 	}
-// 	return
-// }
-
-// func FilesToRLE(files []*os.File, sizes []int64) (set [][]uint16) {
-// 	set = make([][]uint16, len(files))
-// 	for i := range set {
-// 		set[i] = FileToInt(files[i], sizes[i]-HeaderOffset)
-// 	}
-// 	return
-// }

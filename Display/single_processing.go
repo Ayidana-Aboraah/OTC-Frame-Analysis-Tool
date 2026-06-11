@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"reflect"
 )
 
 type Pair struct {
@@ -14,8 +15,12 @@ type Pair struct {
 }
 
 type Output interface {
-	float32 | uint16 | Pair
+	float32 | uint16 | Pair | uint32
 }
+
+type Decoder map[uint32]Pair
+
+type Encoder map[Pair]uint32
 
 type MetaData struct {
 	Width            uint32
@@ -26,14 +31,31 @@ type MetaData struct {
 }
 
 const (
-	WindowSizeFloat  int64 = 4
-	WindowSizeUint16       = 2
-	WindowSizeRLE          = 6
-	WindowSizeMap          = 10
-	WindowSizeMapRLE       = 4
+	WindowSizeFloat  = 4
+	WindowSizeUint16 = 2
+	WindowSizeRLE    = 6
+	WindowSizeMapRLE = 4
+	WindowSizeMap    = 10
 )
 
 const HeaderOffset int64 = 24 // Should be about 16? or more since I think there's a little more data than expected added on
+
+var RLEMap map[Pair]uint32
+
+func MapFromDecoder(decoder *map[uint32]Pair) {
+	RLEMap = make(map[Pair]uint32, len(*decoder))
+	for k, v := range *decoder {
+		RLEMap[v] = k
+	}
+}
+
+func MapToDecoder() (decoder map[uint32]Pair) {
+	decoder = make(map[uint32]Pair, len(RLEMap))
+	for k, v := range RLEMap {
+		decoder[v] = k
+	}
+	return
+}
 
 func OutputData(file string, out []byte) {
 	f, err := os.Create(file)
@@ -46,13 +68,10 @@ func OutputData(file string, out []byte) {
 }
 
 func LoadThermal(path string) (*os.File, int64) {
-	// Load the data file
 	file, err := os.OpenFile(path, os.O_RDONLY, os.ModeAppend)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Convert the byte array into an array of float 32s
 
 	info, err := file.Stat()
 	if err != nil {
@@ -79,10 +98,10 @@ func LoadMetaData(file *os.File) MetaData {
 	}
 }
 
-func FileToValue[V Output](file *os.File, size int64) (data []V) {
+func FileToValue[V Output | Decoder](file *os.File, size int64) (data []V) {
 	defer file.Close()
 
-	var windowSize int64
+	var windowSize int
 
 	switch any(data).(type) {
 	case []uint16:
@@ -91,14 +110,18 @@ func FileToValue[V Output](file *os.File, size int64) (data []V) {
 		windowSize = WindowSizeFloat
 	case []Pair:
 		windowSize = WindowSizeRLE
+	case []uint32:
+		windowSize = WindowSizeMapRLE
+	case []Decoder:
+		windowSize = WindowSizeMap
 	}
 
-	window := make([]byte, int(windowSize))
+	window := make([]byte, windowSize)
 
-	data = make([]V, int(size/windowSize))
+	data = make([]V, int(size)/windowSize)
 
 	for i := range data {
-		_, err := file.ReadAt(window, int64(i)*windowSize)
+		_, err := file.ReadAt(window, int64(i*windowSize))
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -116,242 +139,228 @@ func FileToValue[V Output](file *os.File, size int64) (data []V) {
 				Idx:    binary.LittleEndian.Uint16(window[:2]),
 				Length: binary.LittleEndian.Uint32(window[2:6]),
 			}
-		}
-	}
-	return
-}
-
-// // TODO: Make sure size is adjusted according to if the file is formatted or not
-// func FileToFloat(file *os.File, size int64) (data []float32) {
-// 	defer file.Close()
-
-// 	windowSize := 4
-// 	window := make([]byte, windowSize)
-// 	data = make([]float32, (size / int64(windowSize)))
-
-// 	for i := range data {
-// 		_, err := file.ReadAt(window, int64(i*windowSize))
-// 		if err != nil {
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			log.Fatal(err)
-// 		}
-// 		data[i] = math.Float32frombits(binary.LittleEndian.Uint32(window))
-// 	}
-// 	return
-// }
-
-// func FileToInt(file *os.File, size int64) (data []uint16) {
-// 	defer file.Close()
-
-// 	windowSize := 2
-// 	window := make([]byte, windowSize)
-// 	data = make([]uint16, (size / int64(windowSize)))
-
-// 	for i := range data {
-// 		_, err := file.ReadAt(window, int64(i*windowSize))
-// 		if err != nil {
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			log.Fatal(err)
-// 		}
-// 		data[i] = binary.LittleEndian.Uint16(window[:2])
-// 	}
-// 	return
-// }
-
-// func FileToRLE(file *os.File, size int64) (data []Pair) {
-// 	defer file.Close()
-
-// 	windowSize := 6
-// 	window := make([]byte, windowSize)
-// 	data = make([]Pair, int(size/int64(windowSize)))
-
-// 	for i := range data {
-// 		_, err := file.ReadAt(window, int64(i*windowSize))
-// 		if err != nil {
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			log.Fatal(err)
-// 		}
-
-// 		data[i] = Pair{
-// 			Idx:    binary.LittleEndian.Uint16(window[:2]),
-// 			Length: binary.LittleEndian.Uint32(window[2:6]),
-// 		}
-// 	}
-// 	return
-// }
-
-func FileToMap(file *os.File, size int64) (data map[uint32]Pair) {
-	defer file.Close()
-
-	windowSize := 10
-	window := make([]byte, windowSize)
-	data = make(map[uint32]Pair, (size / int64(windowSize)))
-
-	for i := range len(data) {
-		_, err := file.ReadAt(window, int64(i*windowSize))
-		if err != nil {
-			if err == io.EOF {
-				break
+		case *[]uint32:
+			(*d)[i] = binary.LittleEndian.Uint32(window[:4])
+		case *[]Decoder:
+			(*d)[0][binary.LittleEndian.Uint32(window[:4])] = Pair{
+				Idx:    binary.LittleEndian.Uint16(window[4:6]),
+				Length: binary.LittleEndian.Uint32(window[6:10]),
 			}
-			log.Fatal(err)
-		}
-
-		data[binary.LittleEndian.Uint32(window[:4])] = Pair{
-			Idx:    binary.LittleEndian.Uint16(window[4:6]),
-			Length: binary.LittleEndian.Uint32(window[6:10]),
 		}
 	}
 	return
 }
 
-func FileToMapRLE(file *os.File, size int64, mp map[uint32]Pair) (data []Pair) {
-	defer file.Close()
+func ByteToValue[V Output | Decoder](data *[]byte) (out []V) {
+	var windowSize int
 
-	windowSize := 10
-	window := make([]byte, windowSize)
-	data = make([]Pair, (size / int64(windowSize)))
-
-	for i := range data {
-		_, err := file.ReadAt(window, int64(i*windowSize))
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Fatal(err)
-		}
-
-		data[binary.LittleEndian.Uint32(window[:4])] = Pair{
-			Idx:    binary.LittleEndian.Uint16(window[4:6]),
-			Length: binary.LittleEndian.Uint32(window[6:10]),
-		}
-	}
-	return
-}
-
-// Note: You have to manually allocate out
-func RLEToMapAndRLE(rle *[]Pair, out *map[Pair]uint32) (mapRLE []uint32) {
-	mapRLE = make([]uint32, len(*rle))
-
-	for i, v := range *rle {
-		x, found := (*out)[v]
-		if !found {
-			x = uint32(len(*out))
-			(*out)[v] = x
-		}
-
-		mapRLE[i] = x
-	}
-	return
-}
-
-func MapRLEToBytes(rle *[]uint32) (rleBytes []byte) {
-	rleBytes = make([]byte, len(*rle)*4)
-
-	for i, v := range *rle {
-		c := i * 4
-		binary.LittleEndian.PutUint32(rleBytes[c:c+4], v)
+	switch any(data).(type) {
+	case []uint16:
+		windowSize = WindowSizeUint16
+	case []float32:
+		windowSize = WindowSizeFloat
+	case []Pair:
+		windowSize = WindowSizeRLE
+	case []uint32:
+		windowSize = WindowSizeMapRLE
+	case []Decoder:
+		windowSize = WindowSizeMap
 	}
 
-	return
-}
-
-func MapToBytes(mp *map[Pair]uint32) (mapBytes []byte) {
-	mapBytes = make([]byte, len(*mp)*10)
-	i := 0
-	for pair, idx := range *mp {
-		c := i * 10
-		binary.LittleEndian.PutUint32(mapBytes[c:c+4], idx)
-		binary.LittleEndian.PutUint16(mapBytes[c+4:c+6], pair.Idx)
-		binary.LittleEndian.PutUint32(mapBytes[c+6:c+10], pair.Length)
-	}
-	return
-}
-
-func FloatToInt(data *[]float32) (out []uint16) {
-	out = make([]uint16, len(*data))
-	for i, v := range *data {
-		out[i] = uint16(float32(v * 10))
-		// fmt.Println(out[i])
-	}
-	return out
-}
-
-func IntToFloat(data *[]uint16) (out []float32) {
-	out = make([]float32, len(*data))
-	for i, v := range *data {
-		out[i] = float32(v) * .1
-		// fmt.Println(out[i])
-	}
-	return out
-}
-
-func IntToBytes(data *[]uint16) (out []byte) {
-	out = make([]byte, len(*data)*2)
-	for i, v := range *data {
-		binary.LittleEndian.PutUint16(out[i:i+2], v)
-	}
-	return out
-}
-
-func FloatToRLE(data *[]float32) []Pair {
-	i := FloatToInt(data)
-	return IntToRLE(&i)
-}
-
-func IntToRLE(data *[]uint16) (out []Pair) {
-	out = make([]Pair, len(*data))
-
-	out[0] = Pair{Idx: (*data)[0], Length: 0}
-	current_pair := uint16(0)
-
-	// Loop through data
-	for _, val := range *data {
-		if out[current_pair].Idx == val { // When we see old values, we add to the length of the current pair
-			out[current_pair].Length++
-		} else { // When we see new values, we create a new pair with a length of 1
-			current_pair++
-			out[current_pair] = Pair{Idx: val, Length: 1}
-		}
-	}
-	out = out[:current_pair+1]
-
-	return
-}
-
-func RLEToBytes(pairs *[]Pair) (out []byte) {
-	out = make([]byte, (len(*pairs) * 6))
-	c := 0
-	for i, v := range *pairs {
-		c = i * 6
-		binary.LittleEndian.PutUint16(out[c:c+2], v.Idx)
-		binary.LittleEndian.PutUint32(out[c+2:c+6], v.Length)
-	}
-	return
-}
-
-// When passing in Data, you should only pass the data section
-func BytesToRLE(data []byte) (rle []Pair) {
-	rle = make([]Pair, len(data)/6)
-	for i := range rle {
+	out = make([]V, len(*data)/windowSize)
+	for i := range out {
 		c := i * 6
-		rle[i] = Pair{
-			Idx:    binary.LittleEndian.Uint16(data[c : c+2]),
-			Length: binary.LittleEndian.Uint32(data[c+2 : c+4]),
+		switch o := any(&out).(type) {
+		case *[]float32:
+			(*o)[i] = math.Float32frombits(binary.LittleEndian.Uint32((*data)[c : c+4]))
+		case *[]uint16:
+			(*o)[i] = binary.LittleEndian.Uint16((*data)[c : c+2])
+		case *[]Pair:
+			(*o)[i] = Pair{
+				Idx:    binary.LittleEndian.Uint16((*data)[c : c+2]),
+				Length: binary.LittleEndian.Uint32((*data)[c+2 : c+4]),
+			}
+		case *[]uint32:
+			(*o)[i] = binary.LittleEndian.Uint32((*data)[c : c+4])
+		case *[]Decoder:
+			(*o)[0][binary.LittleEndian.Uint32((*data)[c:c+4])] = Pair{
+				Idx:    binary.LittleEndian.Uint16((*data)[c+4 : c+6]),
+				Length: binary.LittleEndian.Uint32((*data)[c+6 : c+10]),
+			}
 		}
 	}
 	return
 }
 
-func RLEToInt(rle *[]Pair) (out []uint16) {
-	for _, v := range *rle {
-		for range v.Length {
-			out = append(out, v.Idx)
+func ValueToBytes[V Output | map[uint32]Pair](value *[]V) (out []byte) {
+	var windowSize int
+
+	switch any((*value)).(type) {
+	case []uint16:
+		windowSize = WindowSizeUint16
+	case []float32:
+		windowSize = WindowSizeFloat
+	case []Pair:
+		windowSize = WindowSizeRLE
+	case []uint32:
+		windowSize = WindowSizeMapRLE
+	case []map[Pair]uint32:
+		windowSize = WindowSizeMap
+	}
+
+	out = make([]byte, (len(*value) * windowSize))
+	c := 0
+	for i, v := range *value {
+		c = i * windowSize
+		switch x := any((v)).(type) {
+		case float32:
+			binary.LittleEndian.PutUint32(out[c:c+4], math.Float32bits(x))
+		case uint16:
+			binary.LittleEndian.PutUint16(out[c:c+2], x)
+		case Pair:
+			binary.LittleEndian.PutUint16(out[c:c+2], x.Idx)
+			binary.LittleEndian.PutUint32(out[c+2:c+6], x.Length)
+		case uint32:
+			binary.LittleEndian.PutUint32(out[c:c+4], x)
+		case map[uint32]Pair:
+			i := 0
+			for idx, pair := range x {
+				c := i * 10
+				binary.LittleEndian.PutUint32(out[c:c+4], idx)
+				binary.LittleEndian.PutUint16(out[c+4:c+6], pair.Idx)
+				binary.LittleEndian.PutUint32(out[c+6:c+10], pair.Length)
+			}
+		}
+	}
+	return
+}
+
+func ValueToValue[In Output, Out Output](value *[]In) (out []Out) {
+	inputType := reflect.TypeOf(value)
+	outputType := reflect.TypeOf(out)
+
+	// TODO: Evaluate the different cases in which we would not want to pre-allocate our output type
+	if inputType != outputType {
+		out = make([]Out, len(*value))
+	}
+
+	// Translation Functions
+
+	FtoI := func(in *[]float32, out *[]uint16) {
+		for i, v := range *in {
+			(*out)[i] = uint16(float32(v * 10))
+		}
+	}
+	ItoF := func(in *[]uint16, out *[]float32) {
+		for i, v := range *in {
+			(*out)[i] = float32(v) * .1
+		}
+	}
+	ItoRLE := func(in *[]uint16, out *[]Pair) {
+		(*out)[0] = Pair{Idx: (*in)[0], Length: 0}
+		current_pair := uint16(0)
+
+		for _, val := range *in {
+			if (*out)[current_pair].Idx == val { // When we see old values, we add to the length of the current pair
+				(*out)[current_pair].Length++
+			} else { // When we see new values, we create a new pair with a length of 1
+				current_pair++
+				(*out)[current_pair] = Pair{Idx: val, Length: 1}
+			}
+		}
+		*out = (*out)[:current_pair+1]
+	}
+	RLEtoI := func(in *[]Pair, out *[]uint16) {
+		for _, v := range *in {
+			for range v.Length {
+				(*out) = append(*out, v.Idx)
+			}
+		}
+	}
+	RLEtoMapRLE := func(in *[]Pair, out *[]uint32) {
+		for i, v := range *in {
+			x, found := (RLEMap)[v]
+			if !found {
+				x = uint32(len(RLEMap))
+				(RLEMap)[v] = x
+			}
+			(*out)[i] = x
+		}
+	}
+
+	MapRLEtoRLE := func(in *[]uint32, out *[]Pair) {
+		decoder := MapToDecoder()
+		for i, v := range *in {
+			x := (decoder)[v]
+			(*out)[i] = x
+		}
+	}
+
+	switch in := any(value).(type) {
+	case *[]float32:
+		switch o := any(&out).(type) {
+		case *[]float32:
+			(*o) = *in
+		case *[]uint16:
+			FtoI(in, o)
+		case *[]Pair:
+			i := make([]uint16, len(*in))
+			FtoI(in, &i)
+			ItoRLE(&i, o)
+		case *[]uint32: // TODO: Use multiple translation functions to get here
+			i := make([]uint16, len(*in))
+			rle := make([]Pair, len(i))
+			FtoI(in, &i)
+			ItoRLE(&i, &rle)
+			RLEtoMapRLE(&rle, o)
+		}
+	case *[]uint16:
+		switch o := any(&out).(type) {
+		case *[]float32:
+			ItoF(in, o)
+		case *[]uint16:
+			(*o) = *in
+		case *[]Pair:
+			ItoRLE(in, o)
+		case *[]uint32:
+			rle := make([]Pair, len(*in))
+			ItoRLE(in, &rle)
+			RLEtoMapRLE(&rle, o)
+		}
+	case *[]Pair:
+		switch o := any(&out).(type) {
+		case *[]float32:
+			i := []uint16{}
+			RLEtoI(in, &i)
+			ItoF(&i, o)
+		case *[]uint16:
+			RLEtoI(in, o)
+		case *[]Pair:
+			(*o) = *in
+		case *[]uint32:
+			RLEtoMapRLE(in, o)
+		}
+
+	case *[]uint32:
+		switch o := any(&out).(type) {
+		case *[]float32:
+			rle := make([]Pair, len(*in))
+			i := []uint16{}
+
+			MapRLEtoRLE(in, &rle)
+			RLEtoI(&rle, &i)
+			ItoF(&i, o)
+
+		case *[]uint16:
+			rle := make([]Pair, len(*in))
+			MapRLEtoRLE(in, &rle)
+			RLEtoI(&rle, o)
+
+		case *[]Pair:
+			MapRLEtoRLE(in, o)
+
+		case *[]uint32:
+			(*o) = *in
 		}
 	}
 	return

@@ -1,0 +1,5 @@
+Float / Base: (single F32 - 4 bytes each)
+Int: (single uint16 - 2 bytes each) 
+RLE: (Pair{value: uint16, Length: uint32} - 6 bytes {value: 2, Length: 4})
+MapRLE: (single uint32 - 4 bytes each)
+RLEMap: (Key{uint32}, Pair{value: uint16, Length: uint32} - 10 bytes {Key: 4, Pair: {Value: 2, Lenght: 4}})

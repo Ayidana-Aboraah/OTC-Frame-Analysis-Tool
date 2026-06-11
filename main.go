@@ -12,7 +12,7 @@ const fp string = "data/frame_00000000_base.bin"
 func main() {
 	file, size := Display.LoadThermal(fp)
 	f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
-	rle := Display.FloatToRLE(&f)
+	rle := Display.ValueToValue[float32, Display.Pair](&f)
 	stats := Display.FrameStatsRLE(rle)
 	fmt.Println((stats))
 }
@@ -42,12 +42,12 @@ func GetGeneralCompressionRate(path string) {
 		file, size := Display.LoadThermal(path + "/" + entry.Name())
 
 		f32 := Display.FileToValue[float32](file, size-Display.HeaderOffset)
-		u16 := Display.FloatToInt(&f32)
-		rle := Display.IntToRLE(&u16)
+		u16 := Display.ValueToValue[float32, uint16](&f32)
+		rle := Display.ValueToValue[uint16, Display.Pair](&u16)
 
-		baseSize := len(f32) * 4
-		intSize := len(u16) * 2
-		rleSize := len(rle) * 6
+		baseSize := len(f32) * Display.WindowSizeFloat
+		intSize := len(u16) * Display.WindowSizeUint16
+		rleSize := len(rle) * Display.WindowSizeRLE
 
 		compressionInt := (float32(intSize) / float32(baseSize)) * 100
 		compressionRLE := (float32(rleSize) / float32(baseSize)) * 100
@@ -76,14 +76,14 @@ func GetGeneralCompressionRate(path string) {
 func CheckAppAndCurrentRLE() {
 	file, size := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000008_int.bin")
 	i := Display.FileToValue[uint16](file, size-Display.HeaderOffset)
-	rle := Display.IntToRLE(&i)
-	Display.OutputData("RLE.thermal", Display.RLEToBytes(&rle))
+	rle := Display.ValueToValue[uint16, Display.Pair](&i)
+	Display.OutputData("RLE.thermal", Display.ValueToBytes[Display.Pair](&rle))
 
 	constructedFile, cfs := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000008_rle.bin")
 	appRLE := Display.FileToValue[Display.Pair](constructedFile, cfs-Display.HeaderOffset)
 
 	Display.TemperaturesIntToBMP(i, 640, 480, "out/bitGo.bmp")
-	Display.TemperaturesIntToBMP(Display.RLEToInt(&appRLE), 640, 480, "out/bitC#.bmp")
+	Display.TemperaturesIntToBMP(Display.ValueToValue[Display.Pair, uint16](&appRLE), 640, 480, "out/bitC#.bmp")
 
 	// Display.OutputData("RLE 2.thermal", Display.RLEToBytes(&ReconstructedRLE))
 	if len(appRLE) != len(rle) {
