@@ -10,11 +10,12 @@ import (
 const fp string = "data/frame_00000000_base.bin"
 
 func main() {
-	file, size := Display.LoadThermal(fp)
-	f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
-	rle := Display.ValueToValue[float32, Display.Pair](&f)
-	stats := Display.FrameStatsRLE(rle)
-	fmt.Println((stats))
+	// file, size := Display.LoadThermal(fp)
+	// f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
+	// rle := Display.ValueToValue[float32, Display.Pair](&f)
+	// stats := Display.FrameStatsRLE(rle)
+	// fmt.Println((stats))
+	CheckAppAndCurrentRLE()
 }
 
 type CompressionRate struct {
@@ -74,30 +75,36 @@ func GetGeneralCompressionRate(path string) {
 }
 
 func CheckAppAndCurrentRLE() {
-	file, size := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000008_int.bin")
+	file, size := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000000_int.bin")
 	i := Display.FileToValue[uint16](file, size-Display.HeaderOffset)
 	rle := Display.ValueToValue[uint16, Display.Pair](&i)
 	Display.OutputData("RLE.thermal", Display.ValueToBytes[Display.Pair](&rle))
 
-	constructedFile, cfs := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000008_rle.bin")
-	appRLE := Display.FileToValue[Display.Pair](constructedFile, cfs-Display.HeaderOffset)
+	// constructedFile, cfs := Display.LoadThermal("data/Session_20260610_152352/frames/frame_00000008_rle.bin")
+	// appRLE := Display.FileToValue[Display.Pair](constructedFile, cfs-Display.HeaderOffset)
 
-	Display.TemperaturesIntToBMP(i, 640, 480, "out/bitGo.bmp")
-	Display.TemperaturesIntToBMP(Display.ValueToValue[Display.Pair, uint16](&appRLE), 640, 480, "out/bitC#.bmp")
+	check_int := Display.ValueToValue[Display.Pair, uint16](&rle)
+
+	if len(i) != len(check_int) {
+		fmt.Println("Unequal Lenghts, Original: ", len(i), ", New: ", len(check_int))
+	}
+
+	// Display.TemperaturesIntToBMP(i, 640, 480, "out/bitGo.bmp")
+	// Display.TemperaturesIntToBMP(Display.ValueToValue[Display.Pair, uint16](&appRLE), 640, 480, "out/bitC#.bmp")
 
 	// Display.OutputData("RLE 2.thermal", Display.RLEToBytes(&ReconstructedRLE))
-	if len(appRLE) != len(rle) {
-		fmt.Println("Unequal Reconstruction Length | Our: ", len(rle), "Your: ", len(appRLE))
-	}
+	// if len(appRLE) != len(rle) {
+	// 	fmt.Println("Unequal Reconstruction Length | Our: ", len(rle), "Your: ", len(appRLE))
+	// }
 
-	for i := range rle {
-		if appRLE[i].Idx != rle[i].Idx {
-			fmt.Println("Unequal Reconstruction ELement Idx | Our: ", appRLE[i].Idx, "Your: ", rle[i].Idx)
-		}
-		if uint16(appRLE[i].Length) != uint16(rle[i].Length) {
-			fmt.Println("Unequal Reconstruction ELement Length | Our: ", appRLE[i].Length, "Your: ", rle[i].Length)
-		}
-	}
+	// for i := range rle {
+	// 	if appRLE[i].Idx != rle[i].Idx {
+	// 		fmt.Println("Unequal Reconstruction ELement Idx | Our: ", appRLE[i].Idx, "Your: ", rle[i].Idx)
+	// 	}
+	// 	if uint16(appRLE[i].Length) != uint16(rle[i].Length) {
+	// 		fmt.Println("Unequal Reconstruction ELement Length | Our: ", appRLE[i].Length, "Your: ", rle[i].Length)
+	// 	}
+	// }
 
 	// fmt.Println(rle)
 }

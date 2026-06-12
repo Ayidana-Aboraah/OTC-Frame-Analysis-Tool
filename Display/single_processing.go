@@ -2,6 +2,7 @@ package Display
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -133,7 +134,7 @@ func FileToValue[V Output | Decoder](file *os.File, size int64) (data []V) {
 		case *[]float32:
 			(*d)[i] = math.Float32frombits(binary.LittleEndian.Uint32(window))
 		case *[]uint16:
-			(*d)[i] = binary.LittleEndian.Uint16(window[:2])
+			(*d)[i] = binary.BigEndian.Uint16(window[:2])
 		case *[]Pair:
 			(*d)[i] = Pair{
 				Idx:    binary.LittleEndian.Uint16(window[:2]),
@@ -236,11 +237,14 @@ func ValueToBytes[V Output | map[uint32]Pair](value *[]V) (out []byte) {
 }
 
 func ValueToValue[In Output, Out Output](value *[]In) (out []Out) {
-	inputType := reflect.TypeOf(value)
+	inputType := reflect.TypeOf(*value)
 	outputType := reflect.TypeOf(out)
 
+	a := !(inputType == reflect.TypeFor[[]Pair]() && outputType == reflect.TypeFor[[]uint32]())
+	b := !(inputType == reflect.TypeFor[[]uint32]() && outputType == reflect.TypeFor[[]Pair]())
+
 	// TODO: Evaluate the different cases in which we would not want to pre-allocate our output type
-	if inputType != outputType {
+	if inputType != outputType && a && b {
 		out = make([]Out, len(*value))
 	}
 
@@ -268,14 +272,18 @@ func ValueToValue[In Output, Out Output](value *[]In) (out []Out) {
 				(*out)[current_pair] = Pair{Idx: val, Length: 1}
 			}
 		}
+		fmt.Println("Current Pair Idx: ", current_pair)
 		*out = (*out)[:current_pair+1]
 	}
 	RLEtoI := func(in *[]Pair, out *[]uint16) {
+		total := 0
 		for _, v := range *in {
 			for range v.Length {
+				total += int(v.Length)
 				(*out) = append(*out, v.Idx)
 			}
 		}
+		fmt.Println("Total RLE vals: ", total)
 	}
 	RLEtoMapRLE := func(in *[]Pair, out *[]uint32) {
 		for i, v := range *in {
@@ -314,6 +322,7 @@ func ValueToValue[In Output, Out Output](value *[]In) (out []Out) {
 			ItoRLE(&i, &rle)
 			RLEtoMapRLE(&rle, o)
 		}
+
 	case *[]uint16:
 		switch o := any(&out).(type) {
 		case *[]float32:
@@ -327,6 +336,7 @@ func ValueToValue[In Output, Out Output](value *[]In) (out []Out) {
 			ItoRLE(in, &rle)
 			RLEtoMapRLE(&rle, o)
 		}
+
 	case *[]Pair:
 		switch o := any(&out).(type) {
 		case *[]float32:
