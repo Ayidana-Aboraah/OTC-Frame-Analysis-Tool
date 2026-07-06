@@ -15,7 +15,10 @@ func main() {
 	// rle := Display.ValueToValue[float32, Display.Pair](&f)
 	// stats := Display.FrameStatsRLE(rle)
 	// fmt.Println((stats))
-	CheckAppAndCurrentRLE()
+	// CheckAppAndCurrentRLE()
+
+	path := "C:/Users/ayidana.aboraah/Documents/Stuff2/Thermal Frame Analysis/data"
+	Display.ContinousFrameSetToBin[float32](path+"/Session_20260610_152352/frames", path+"/x.out")
 }
 
 type CompressionRate struct {
