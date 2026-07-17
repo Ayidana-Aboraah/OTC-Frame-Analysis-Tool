@@ -8,17 +8,20 @@ import (
 )
 
 const fp string = "data/frame_00000000_base.bin"
+const ttt string = "data/bframe_00000000_base.bin"
 
 func main() {
-	// file, size := Display.LoadThermal(fp)
-	// f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
+	file, size := Display.LoadThermal(ttt)
+	f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
+	Display.TemperaturesToBMP(f, 640, 480, "./out.bmp")
 	// rle := Display.ValueToValue[float32, Display.Pair](&f)
 	// stats := Display.FrameStatsRLE(rle)
 	// fmt.Println((stats))
 	// CheckAppAndCurrentRLE()
 
-	path := "C:/Users/ayidana.aboraah/Documents/Stuff2/Thermal Frame Analysis/data"
-	Display.ContinousFrameSetToBin[float32](path+"/Session_20260610_152352/frames", path+"/x.out")
+	// path := "C:/Users/ayidana.aboraah/Documents/Stuff2/Thermal Frame Analysis/data"
+	// Display.ContinousFrameSetToBin[float32](path+"/Session_20260610_152352/frames", path+"/x.out")
+
 }
 
 type CompressionRate struct {

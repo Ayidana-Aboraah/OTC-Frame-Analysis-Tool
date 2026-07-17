@@ -1,6 +1,7 @@
 package Display
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -121,8 +122,11 @@ func FileToValue[V Output | Decoder](file *os.File, size int64) (data []V) {
 
 	data = make([]V, int(size)/windowSize)
 
+	reader := bufio.NewReader(file)
+
 	for i := range data {
-		_, err := file.ReadAt(window, int64(i*windowSize))
+		_, err := reader.Read(window)
+		// _, err := file.ReadAt(window, int64(i*windowSize))
 		if err != nil {
 			if err == io.EOF {
 				break

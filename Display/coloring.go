@@ -56,10 +56,10 @@ func TemperaturesToBMP(
 	temps []float32,
 	width, height int,
 	outputPath string,
-) error {
+) {
 
 	if len(temps) < width*height {
-		return errors.New("temperature array size does not match width*height")
+		panic(errors.New("temperature array size does not match width*height"))
 	}
 
 	// Find min/max temperature.
@@ -97,11 +97,13 @@ func TemperaturesToBMP(
 
 	f, err := os.Create(outputPath)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer f.Close()
 
-	return bmp.Encode(f, img)
+	if e := bmp.Encode(f, img); e != nil {
+		panic(e)
+	}
 }
 
 func TemperaturesIntToBMP(temps []uint16,

@@ -4,26 +4,69 @@ import (
 	"encoding/binary"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-func ContinousFrameSetToBin[v Output](path, outPath string) {
+type IOpair struct {
+	in  string
+	out string
+}
+type Result struct {
+	file IOpair
+	err  error
+}
+
+func LFTB[in Output, out Output](tasks []IOpair) {
+	workers := runtime.NumCPU()
+	jobs := make(chan IOpair, len(tasks))
+	results := make(chan Result, len(tasks))
+	var wg sync.WaitGroup
+
+	for w := 1; w <= workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				err := ContinousFrameSetToBin[in, out](job.in, job.out)
+				if err != nil {
+					results <- Result{file: job, err: err}
+				}
+			}
+		}()
+	}
+
+	for _, task := range tasks {
+		jobs <- task
+	}
+	close(jobs)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// TODO: List info from results upon completion
+}
+
+func ContinousFrameSetToBin[in Output, outT Output](path, outPath string) error {
 	out, err := os.Create(outPath)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 
 	dir, err := os.ReadDir(path)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 
 	header := [2]uint16{}
 
 	for i, entry := range dir {
 		var extension string
-		var a v
+		var a in
 
 		switch any(a).(type) {
 		case float32:
@@ -50,13 +93,15 @@ func ContinousFrameSetToBin[v Output](path, outPath string) {
 			binary.LittleEndian.PutUint16(buf[2:], header[1])
 			_, err = out.Write(buf[:])
 			if err != nil {
-				panic(err)
+				return (err)
 			}
 		}
 
-		b := FileToValue[v](cf, size)
-		out.Write(ValueToBytes(&b))
+		b := FileToValue[in](cf, size)
+		o := ValueToValue[in, outT](&b) // TODO: Adjust how o handles the in & out type being the same
+		out.Write(ValueToBytes(&o))
 	}
+	return nil
 }
 
 func LoadFrameSetFiles(startFrame int, endFrame int, extension, path string) (files []*os.File, sizes []int64) {
