@@ -2,6 +2,7 @@ package Display
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -11,18 +12,18 @@ import (
 )
 
 type IOpair struct {
-	in  string
-	out string
+	In  string
+	Out string
 }
 type Result struct {
-	file IOpair
-	err  error
+	File IOpair
+	Err  error
 }
 
-func LFTB[in Output, out Output](tasks []IOpair) {
+func LFTB[in Output, out Output](tasks *[]IOpair) {
 	workers := runtime.NumCPU()
-	jobs := make(chan IOpair, len(tasks))
-	results := make(chan Result, len(tasks))
+	jobs := make(chan IOpair, len(*tasks))
+	results := make(chan Result, len(*tasks))
 	var wg sync.WaitGroup
 
 	for w := 1; w <= workers; w++ {
@@ -30,15 +31,15 @@ func LFTB[in Output, out Output](tasks []IOpair) {
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				err := ContinousFrameSetToBin[in, out](job.in, job.out)
+				err := ContinousFrameSetToBin[in, out](job.In, job.Out)
 				if err != nil {
-					results <- Result{file: job, err: err}
+					results <- Result{File: job, Err: err}
 				}
 			}
 		}()
 	}
 
-	for _, task := range tasks {
+	for _, task := range *tasks {
 		jobs <- task
 	}
 	close(jobs)
@@ -47,6 +48,10 @@ func LFTB[in Output, out Output](tasks []IOpair) {
 		wg.Wait()
 		close(results)
 	}()
+
+	for res := range results {
+		fmt.Println(res.Err)
+	}
 
 	// TODO: List info from results upon completion
 }

@@ -11,9 +11,36 @@ const fp string = "data/frame_00000000_base.bin"
 const ttt string = "data/bframe_00000000_base.bin"
 
 func main() {
-	file, size := Display.LoadThermal(ttt)
-	f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
-	Display.TemperaturesToBMP(f, 640, 480, "./out.bmp")
+	opts := []Display.IOpair{
+		{In: "D:/works/data/Cube 2026-06-30/LWIR/Session_20260630_133125", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-06-30/A"},
+		{In: "D:/works/data/Cube 2026-06-30/LWIR/Session_20260630_140431", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-06-30/B"},
+		{In: "D:/works/data/Cube 2026-06-30/LWIR/Session_20260630_150539", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-06-30/C"},
+
+		{In: "D:/works/data/Cube 2026-07-02/LWIR/Session_20260702_115658", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-02/A"},
+		{In: "D:/works/data/Cube 2026-07-02/LWIR/Session_20260702_141100", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-02/B"},
+		{In: "D:/works/data/Cube 2026-07-02/LWIR/Session_20260702_142207", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-02/C"},
+		{In: "D:/works/data/Cube 2026-07-02/LWIR/Session_20260702_154315", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-02/D"},
+		{In: "D:/works/data/Cube 2026-07-02/LWIR/Session_20260702_155126", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-02/E"},
+
+		{In: "D:/works/data/Cube 2026-07-06/LWIR/Session_20260706_131958", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-06/F"},
+		{In: "D:/works/data/Cube 2026-07-06/LWIR/Session_20260706_132118", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-06/G"},
+		{In: "D:/works/data/Cube 2026-07-06/LWIR/Session_20260706_132935", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-06/H"},
+		{In: "D:/works/data/Cube 2026-07-06/LWIR/Session_20260706_151134", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-06/I"},
+
+		{In: "D:/works/data/Cube 2026-07-07/LWIR/Session_20260707_133543", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-07/A"},
+
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_094801", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/B"},
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_101541", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/C"},
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_120553", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/D"},
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_121016", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/E"},
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_122239", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/F"},
+		{In: "D:/works/data/Cube 2026-07-08/LWIR/Session_20260708_133616", Out: "T:/7dayShared/Docs/Ayidana/compressed/Cube 2026-07-08/G"},
+	}
+	Display.LFTB[float32, uint16](&opts)
+
+	// file, size := Display.LoadThermal(ttt)
+	// f := Display.FileToValue[float32](file, size-Display.HeaderOffset)
+	// Display.TemperaturesToBMP(f, 640, 480, "./out.bmp")
 	// rle := Display.ValueToValue[float32, Display.Pair](&f)
 	// stats := Display.FrameStatsRLE(rle)
 	// fmt.Println((stats))
